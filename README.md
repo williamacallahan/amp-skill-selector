@@ -4,7 +4,17 @@ A plugin for [Amp](https://ampcode.com/install), Sourcegraph's agentic coding CL
 
 ## Install
 
-Amp loads plugins from two standard directories: `~/.config/amp/plugins/` (system plugins, active in every project on the machine) and `.amp/plugins/` inside a repository (project plugins, active only there). The plugin is a single file — install it by downloading it into either one.
+The simplest way: paste this into any Amp thread and Amp installs it for you.
+
+```text
+Install the Amp skill-selector plugin: download
+https://raw.githubusercontent.com/williamacallahan/amp-skill-selector/main/.amp/plugins/skill-selector.ts
+to ~/.config/amp/plugins/skill-selector.ts, creating directories as needed, then reload plugins.
+```
+
+For a project-only install, change the destination to `.amp/plugins/skill-selector.ts` in the project root.
+
+To install manually instead: Amp loads plugins from two standard directories, `~/.config/amp/plugins/` (system plugins, active in every project on the machine) and `.amp/plugins/` inside a repository (project plugins, active only there). The plugin is a single file — download it into either one.
 
 User-level, for every project on this machine:
 
