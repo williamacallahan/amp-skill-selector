@@ -8,7 +8,7 @@ The plugin is a single file. Download it into Amp's user-wide plugin directory:
 
 ```bash
 mkdir -p ~/.config/amp/plugins
-curl -fsSL https://raw.githubusercontent.com/WilliamAGH/amp-skill-selector/main/.amp/plugins/skill-selector.ts \
+curl -fsSL https://raw.githubusercontent.com/williamacallahan/amp-skill-selector/main/.amp/plugins/skill-selector.ts \
   -o ~/.config/amp/plugins/skill-selector.ts
 ```
 
@@ -58,7 +58,7 @@ The public API also does not expose live composer text or completion hooks. Pref
 Clone the repository and symlink the plugin so your checkout is the live copy:
 
 ```bash
-git clone https://github.com/WilliamAGH/amp-skill-selector.git
+git clone https://github.com/williamacallahan/amp-skill-selector.git
 cd amp-skill-selector
 mkdir -p ~/.config/amp/plugins
 ln -sf "$PWD/.amp/plugins/skill-selector.ts" ~/.config/amp/plugins/skill-selector.ts
