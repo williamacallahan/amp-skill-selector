@@ -8,13 +8,13 @@ Supported entry points:
 
 - `$skill-name task` anywhere in a submitted message.
 - `/skill-name task` within a submitted message, except when `/` is its first character.
-- A `skills: select` command-palette action that queues one installed skill for the next submitted message.
+- One native `skills: <name>` command-palette action per installed skill. Amp's palette provides typed filtering, scrolling, and keyboard selection; choosing a command queues that skill for the next submitted message.
 
 ## Platform boundary
 
 Amp's public plugin API does not expose composer text, cursor changes, argument completion, direct tool invocation, or a direct skill-loading API. Consequently:
 
-- The plugin cannot open a completion UI while a prefix is being typed.
+- The plugin cannot open a completion UI in the composer while a prefix is being typed. Skill-name autocomplete instead uses Amp's native command palette.
 - A leading `/` remains entirely under Amp's built-in command handling.
 - The plugin must not read and inject `SKILL.md` itself, because that would imitate rather than perform Amp's canonical skill invocation.
 - The plugin will use `agent.start` to instruct the active agent to call Amp's built-in `skill` tool before doing other work. The resulting tool call is the real, visible invocation.
@@ -24,10 +24,12 @@ Amp's public plugin API does not expose composer text, cursor changes, argument 
 The plugin contains three responsibilities in one TypeScript file:
 
 1. **Discover skills** by running Amp's canonical `amp skill list --json` command. Do not duplicate Amp's filesystem scanning or precedence rules.
-2. **Select or resolve a skill** through Amp's native `ctx.ui.select` dialog or a submitted `$name`/embedded `/name` token. The native dialog owns scrolling and keyboard behavior.
+2. **Select or resolve a skill** by registering every installed skill as a native command-palette command and by recognizing submitted `$name`/embedded `/name` tokens. The native palette owns autocomplete, scrolling, and keyboard behavior.
 3. **Request canonical invocation** by returning hidden `agent.start` context requiring the agent to call `skill({ name: "<name>" })` before any other action.
 
-The command-palette selection is held in memory as a one-shot queued skill. The next `agent.start` consumes and clears it before returning invocation context. An explicit token in that same message takes precedence over the queue so user text wins; the stale queued selection is also cleared.
+Command-palette selections are held by thread ID as one-shot queued skills, so concurrent threads cannot consume each other's selection. The next `agent.start` for that thread consumes and clears its queue before returning invocation context. An explicit token in that same message takes precedence over the queue so user text wins; the stale queued selection is also cleared.
+
+The command inventory is generated when the plugin loads. After installing or removing skills, the user runs Amp's existing `plugins: reload` action to refresh palette commands.
 
 Token recognition is deliberately narrow:
 
@@ -38,9 +40,8 @@ Token recognition is deliberately narrow:
 
 ## Failure behavior
 
-- If skill discovery fails, the palette command shows Amp's stderr or a concise fallback notification and does not queue anything.
+- If skill discovery fails, the plugin logs a concise error and registers no skill commands.
 - If no thread is active, selection reports that a thread is required.
-- Cancellation leaves queued state unchanged only when the user never selected a replacement.
 - Messages without a recognized skill add no context and preserve normal Amp behavior.
 - Unknown sigil names are not intercepted because `$` and `/` are common text. Amp handles the original message normally.
 
@@ -48,9 +49,9 @@ Token recognition is deliberately narrow:
 
 - Unit tests cover `$` at the start and within text, embedded `/`, excluded leading `/`, token boundaries, unknown names, explicit-over-queued precedence, and one-shot queue consumption.
 - `amp plugins exec` exercises plugin loading and command registration where the CLI permits non-interactive execution.
-- Manual verification in Amp confirms the command uses the native scrollable selector and that a selected or explicit skill produces the built-in `skill` tool call.
+- Manual verification in Amp confirms typing a partial skill name filters native palette commands and that a selected or explicit skill produces the built-in `skill` tool call.
 
 ## Intentionally omitted
 
-- Live composer autocomplete: unsupported by Amp's public API.
-- Custom picker, fuzzy matcher, recents database, filesystem scanner, polling, dependencies, and experimental APIs: Amp's native UI and canonical inventory already own those concerns or the platform cannot safely support them.
+- Live composer autocomplete: unsupported by Amp's public API; the native command palette supplies autocomplete instead.
+- Custom picker, fuzzy matcher, recents database, filesystem scanner, polling, dependencies, and experimental APIs: Amp's native command palette and canonical inventory already own those concerns or the platform cannot safely support them.
