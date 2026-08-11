@@ -4,6 +4,8 @@ import test from 'node:test'
 import {
   findInvokedSkill,
   invocationInstruction,
+  parseSkillInventory,
+  takeInvokedSkill,
 } from '../.amp/plugins/skill-selector.ts'
 
 const skills = ['ponytail', 'ce-simplify-code', 'test']
@@ -35,4 +37,36 @@ test('builds an explicit canonical skill-tool instruction', () => {
   assert.match(instruction, /built-in `skill` tool/)
   assert.match(instruction, /"name":"ponytail"/)
   assert.match(instruction, /before any other action/i)
+})
+
+test('parses Amp canonical skill inventory', () => {
+  assert.deepEqual(
+    parseSkillInventory(JSON.stringify({
+      skills: [{ name: 'ponytail', description: 'Prefer the simplest code.' }],
+      errors: [],
+    })),
+    [{ name: 'ponytail', description: 'Prefer the simplest code.' }],
+  )
+  assert.throws(() => parseSkillInventory('{"skills":"invalid"}'), /invalid skill inventory/i)
+})
+
+test('explicit references override and consume a queued palette selection', () => {
+  const queued = new Map([['thread-1', 'ce-simplify-code']])
+
+  assert.equal(
+    takeInvokedSkill('$ponytail simplify this', skills, 'thread-1', queued),
+    'ponytail',
+  )
+  assert.equal(queued.has('thread-1'), false)
+})
+
+test('queued selections are one-shot and isolated by thread', () => {
+  const queued = new Map([
+    ['thread-1', 'ponytail'],
+    ['thread-2', 'ce-simplify-code'],
+  ])
+
+  assert.equal(takeInvokedSkill('Simplify this', skills, 'thread-1', queued), 'ponytail')
+  assert.equal(takeInvokedSkill('Again', skills, 'thread-1', queued), undefined)
+  assert.equal(queued.get('thread-2'), 'ce-simplify-code')
 })
