@@ -8,7 +8,7 @@ Supported entry points:
 
 - `$skill-name task` anywhere in a submitted message.
 - `/skill-name task` within a submitted message, except when `/` is its first character.
-- One native `skills: <name>` command-palette action per installed skill. Amp's palette provides typed filtering, scrolling, and keyboard selection; choosing a command queues that skill for the next submitted message.
+- One native `invoke skill: <name>` command-palette action per installed skill. Amp's palette provides typed filtering, scrolling, and keyboard selection; choosing a command queues that skill for the next submitted message.
 
 ## Platform boundary
 
@@ -29,6 +29,8 @@ The plugin contains three responsibilities in one TypeScript file:
 
 Command-palette selections are held by thread ID as one-shot queued skills, so concurrent threads cannot consume each other's selection. The next `agent.start` for that thread consumes and clears its queue before returning invocation context. An explicit token in that same message takes precedence over the queue so user text wins; the stale queued selection is also cleared.
 
+The native `invoke skill: cancel queued selection` command lets the active thread discard a selection before submitting another message.
+
 The command inventory is generated when the plugin loads. After installing or removing skills, the user runs Amp's existing `plugins: reload` action to refresh palette commands.
 
 Token recognition is deliberately narrow:
@@ -36,6 +38,8 @@ Token recognition is deliberately narrow:
 - Skill names come from Amp's installed-skill inventory, so arbitrary `$words` and path fragments are ignored.
 - `$` may begin the message.
 - `/` must occur after the first character and at a token boundary.
+- Quotes and brackets may surround a reference.
+- References inside inline or fenced Markdown code are ignored.
 - Only the first recognized explicit skill is invoked. Multi-skill orchestration remains ordinary prompt text rather than hidden plugin policy.
 
 ## Failure behavior
