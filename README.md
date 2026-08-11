@@ -4,7 +4,9 @@ A plugin for [Amp](https://ampcode.com/install), Sourcegraph's agentic coding CL
 
 ## Install
 
-The plugin is a single file. Download it into Amp's user-wide plugin directory:
+Amp loads plugins from two standard directories: `~/.config/amp/plugins/` (system plugins, active in every project on the machine) and `.amp/plugins/` inside a repository (project plugins, active only there). The plugin is a single file — install it by downloading it into either one.
+
+User-level, for every project on this machine:
 
 ```bash
 mkdir -p ~/.config/amp/plugins
@@ -12,7 +14,15 @@ curl -fsSL https://raw.githubusercontent.com/williamacallahan/amp-skill-selector
   -o ~/.config/amp/plugins/skill-selector.ts
 ```
 
-Then run `plugins: reload` from Amp's command palette. Re-run both steps to update. Reload the plugin again after adding or removing skills so its generated commands match Amp's current skill inventory.
+Project-only, from the project's root — commit the file to share it with everyone working on that repository:
+
+```bash
+mkdir -p .amp/plugins
+curl -fsSL https://raw.githubusercontent.com/williamacallahan/amp-skill-selector/main/.amp/plugins/skill-selector.ts \
+  -o .amp/plugins/skill-selector.ts
+```
+
+Then run `plugins: reload` from Amp's command palette; `amp plugins list` confirms it is active. Re-run the download to update. Reload the plugin again after adding or removing skills so its generated commands match Amp's current skill inventory.
 
 ## Use the native command palette
 
@@ -24,6 +34,9 @@ Once a thread is active:
 4. Submit the task that should use the skill.
 
 The palette is Amp's native UI, including its filtering, scrolling, and keyboard behavior. A selection applies once to the active thread's next submitted message. On Amp's welcome screen there is no thread to attach a selection to, so use `$skill-name` for the first message.
+
+To discard a selection before submitting the next message, run
+`invoke skill: cancel queued selection` from the palette.
 
 Amp's built-in `skills: list` remains the read-only inventory view. The `invoke skill:`
 commands are deliberately separate because Amp's public plugin API cannot extend that view.
@@ -46,6 +59,8 @@ Please /ponytail simplify this implementation
 ```
 
 A slash at the beginning is reserved for Amp's built-in commands, so `/ponytail` is not intercepted.
+References may be wrapped in quotes or brackets. References inside inline or fenced Markdown
+code are ignored so shell and documentation examples do not load skills accidentally.
 
 ## How invocation works
 
@@ -64,7 +79,7 @@ mkdir -p ~/.config/amp/plugins
 ln -sf "$PWD/.amp/plugins/skill-selector.ts" ~/.config/amp/plugins/skill-selector.ts
 ```
 
-While working inside this repository, Amp loads `.amp/plugins/skill-selector.ts` directly, so no separate installation is needed here.
+This repository ships the plugin as its own project plugin at `.amp/plugins/skill-selector.ts`, so Amp loads it automatically while working here — no separate installation is needed.
 
 Node.js 22 or newer is required for TypeScript type stripping and the built-in test runner:
 
