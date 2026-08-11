@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  cancelQueuedSkill,
   createSkillReferenceMatcher,
   findInvokedSkill,
   invocationInstruction,
@@ -25,9 +26,21 @@ test('finds embedded slash-prefixed skills but reserves a leading slash', () => 
 
 test('recognizes punctuation boundaries without matching unknown or partial names', () => {
   assert.equal(findInvokedSkill('Use $test, then report.', references), 'test')
+  assert.equal(findInvokedSkill('Use ($ponytail).', references), 'ponytail')
+  assert.equal(findInvokedSkill('Use "/ponytail".', references), 'ponytail')
   assert.equal(findInvokedSkill('Use $testing here', references), undefined)
   assert.equal(findInvokedSkill('The price is $testable.', references), undefined)
+  assert.equal(findInvokedSkill('The variable is $test_value.', references), undefined)
   assert.equal(findInvokedSkill('Path/test is not a skill token', references), undefined)
+})
+
+test('ignores references inside fenced code', () => {
+  assert.equal(findInvokedSkill('```sh\n$test command\n```', references), undefined)
+  assert.equal(findInvokedSkill('~~~sh\n/test command\n~~~', references), undefined)
+  assert.equal(
+    findInvokedSkill('```sh\n$test command\n```\nUse $ponytail', references),
+    'ponytail',
+  )
 })
 
 test('returns the first invoked skill in message order', () => {
@@ -71,6 +84,17 @@ test('queued selections are one-shot and isolated by thread', () => {
 
   assert.equal(takeInvokedSkill('Simplify this', references, 'T-thread-1', queued), 'ponytail')
   assert.equal(takeInvokedSkill('Again', references, 'T-thread-1', queued), undefined)
+  assert.equal(queued.get('T-thread-2'), 'ce-simplify-code')
+})
+
+test('cancels only the active thread queued selection', () => {
+  const queued = new Map([
+    ['T-thread-1' as const, 'ponytail'],
+    ['T-thread-2' as const, 'ce-simplify-code'],
+  ])
+
+  assert.equal(cancelQueuedSkill('T-thread-1', queued), 'ponytail')
+  assert.equal(cancelQueuedSkill('T-thread-1', queued), undefined)
   assert.equal(queued.get('T-thread-2'), 'ce-simplify-code')
 })
 

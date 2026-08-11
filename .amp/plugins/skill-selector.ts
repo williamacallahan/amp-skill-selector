@@ -16,9 +16,19 @@ export function createSkillReferenceMatcher(
 
   const names = installedNames.map(escapeRegExp).join('|')
   return new RegExp(
-    `(^|\\s)([$/])(${names})(?=$|[\\s.,!?;:])`,
+    `(^|[\\s("'\\[{])([$/])(${names})(?![\\w-])`,
     'g',
   )
+}
+
+function isInsideCodeFence(message: string, index: number): boolean {
+  let fence: string | undefined
+  for (const match of message.slice(0, index).matchAll(/^ {0,3}(`{3,}|~{3,})/gm)) {
+    const marker = match[1][0]
+    if (!fence) fence = marker
+    else if (fence === marker) fence = undefined
+  }
+  return fence !== undefined
 }
 
 export function findInvokedSkill(
@@ -28,7 +38,9 @@ export function findInvokedSkill(
   if (!references) return undefined
 
   for (const match of message.matchAll(references)) {
-    if (match[2] === '/' && match.index === 0) continue
+    const sigilIndex = match.index + match[1].length
+    if (isInsideCodeFence(message, sigilIndex)) continue
+    if (match[2] === '/' && sigilIndex === 0) continue
     return match[3]
   }
 
@@ -74,6 +86,15 @@ export function takeInvokedSkill(
   return selected
 }
 
+export function cancelQueuedSkill(
+  threadID: ThreadID,
+  queued: Map<ThreadID, string>,
+): string | undefined {
+  const name = queued.get(threadID)
+  queued.delete(threadID)
+  return name
+}
+
 export function loadedSkillName(result: {
   tool: string
   status: 'done' | 'error' | 'cancelled'
@@ -104,6 +125,24 @@ export default function skillSelector(amp: PluginAPI) {
     })
 
   void inventoryPromise.then(({ skills }) => {
+    amp.registerCommand(
+      'cancel-queued-skill',
+      {
+        title: 'cancel queued selection',
+        category: 'invoke skill',
+        description: 'Cancel the skill queued for this thread’s next message.',
+      },
+      async (ctx) => {
+        if (!ctx.thread) {
+          await ctx.ui.notify('No active thread has a queued skill.')
+          return
+        }
+
+        const name = cancelQueuedSkill(ctx.thread.id, queued)
+        await ctx.ui.notify(name ? `Cancelled queued skill: ${name}` : 'No skill is queued.')
+      },
+    )
+
     for (const skill of skills) {
       amp.registerCommand(
         `invoke-${skill.name}`,
@@ -123,6 +162,8 @@ export default function skillSelector(amp: PluginAPI) {
         },
       )
     }
+  }).catch((error) => {
+    amp.logger.log('Unable to register skill commands:', error)
   })
 
   amp.on('agent.start', async (event) => {
