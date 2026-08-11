@@ -1,25 +1,18 @@
 # Amp Skill Selector
 
-Invoke installed Amp skills from Amp's native command palette or explicit skill references.
+A plugin for [Amp](https://ampcode.com/install), Sourcegraph's agentic coding CLI. Invoke installed Amp skills from Amp's native command palette or explicit skill references.
 
 ## Install
 
-Clone the repository, then install it for every project on this machine:
+The plugin is a single file. Download it into Amp's user-wide plugin directory:
 
 ```bash
-git clone https://github.com/WilliamAGH/amp-skill-selector.git
 mkdir -p ~/.config/amp/plugins
-cp amp-skill-selector/.amp/plugins/skill-selector.ts ~/.config/amp/plugins/
+curl -fsSL https://raw.githubusercontent.com/WilliamAGH/amp-skill-selector/main/.amp/plugins/skill-selector.ts \
+  -o ~/.config/amp/plugins/skill-selector.ts
 ```
 
-To install it for one workspace instead, copy the plugin into that repository:
-
-```bash
-mkdir -p .amp/plugins
-cp /path/to/amp-skill-selector/.amp/plugins/skill-selector.ts .amp/plugins/
-```
-
-Run `plugins: reload` from Amp's command palette after installation. Reload the plugin again after adding or removing skills so its generated commands match Amp's current skill inventory.
+Then run `plugins: reload` from Amp's command palette. Re-run both steps to update. Reload the plugin again after adding or removing skills so its generated commands match Amp's current skill inventory.
 
 ## Use the native command palette
 
@@ -27,10 +20,13 @@ Once a thread is active:
 
 1. Open Amp's command palette with `Ctrl+O`.
 2. Type part of a skill name, such as `ponytail` or `simplify`.
-3. Select the matching `skills: <name>` command.
+3. Select the matching `invoke skill: <name>` command.
 4. Submit the task that should use the skill.
 
 The palette is Amp's native UI, including its filtering, scrolling, and keyboard behavior. A selection applies once to the active thread's next submitted message. On Amp's welcome screen there is no thread to attach a selection to, so use `$skill-name` for the first message.
+
+Amp's built-in `skills: list` remains the read-only inventory view. The `invoke skill:`
+commands are deliberately separate because Amp's public plugin API cannot extend that view.
 
 Whenever Amp successfully loads a skill—from this selector, automatic model choice, another skill, or another plugin—the CLI shows a `Loaded skill: <name>` notification.
 
@@ -59,7 +55,18 @@ The public API also does not expose live composer text or completion hooks. Pref
 
 ## Develop
 
-Requires Node.js 22 or newer for TypeScript type stripping and the built-in test runner:
+Clone the repository and symlink the plugin so your checkout is the live copy:
+
+```bash
+git clone https://github.com/WilliamAGH/amp-skill-selector.git
+cd amp-skill-selector
+mkdir -p ~/.config/amp/plugins
+ln -sf "$PWD/.amp/plugins/skill-selector.ts" ~/.config/amp/plugins/skill-selector.ts
+```
+
+While working inside this repository, Amp loads `.amp/plugins/skill-selector.ts` directly, so no separate installation is needed here.
+
+Node.js 22 or newer is required for TypeScript type stripping and the built-in test runner:
 
 ```bash
 npm test
