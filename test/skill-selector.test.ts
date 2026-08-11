@@ -5,6 +5,7 @@ import {
   createSkillReferenceMatcher,
   findInvokedSkill,
   invocationInstruction,
+  loadedSkillName,
   parseSkillInventory,
   takeInvokedSkill,
 } from '../.amp/plugins/skill-selector.ts'
@@ -71,4 +72,23 @@ test('queued selections are one-shot and isolated by thread', () => {
   assert.equal(takeInvokedSkill('Simplify this', references, 'T-thread-1', queued), 'ponytail')
   assert.equal(takeInvokedSkill('Again', references, 'T-thread-1', queued), undefined)
   assert.equal(queued.get('T-thread-2'), 'ce-simplify-code')
+})
+
+test('reports the name only after a successful built-in skill result', () => {
+  assert.equal(
+    loadedSkillName({ tool: 'skill', status: 'done', input: { name: 'ponytail' } }),
+    'ponytail',
+  )
+  assert.equal(
+    loadedSkillName({ tool: 'skill', status: 'error', input: { name: 'ponytail' } }),
+    undefined,
+  )
+  assert.equal(
+    loadedSkillName({ tool: 'shell_command', status: 'done', input: { name: 'ponytail' } }),
+    undefined,
+  )
+  assert.equal(
+    loadedSkillName({ tool: 'skill', status: 'done', input: { name: 42 } }),
+    undefined,
+  )
 })

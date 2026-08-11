@@ -74,6 +74,17 @@ export function takeInvokedSkill(
   return selected
 }
 
+export function loadedSkillName(result: {
+  tool: string
+  status: 'done' | 'error' | 'cancelled'
+  input: Record<string, unknown>
+}): string | undefined {
+  const name = result.input.name
+  return result.tool === 'skill' && result.status === 'done' && typeof name === 'string'
+    ? name
+    : undefined
+}
+
 export default function skillSelector(amp: PluginAPI) {
   const queued = new Map<ThreadID, string>()
   const inventoryPromise = amp.$`amp skill list --json`
@@ -125,5 +136,18 @@ export default function skillSelector(amp: PluginAPI) {
 
     if (!name) return
     return { message: { content: invocationInstruction(name) } }
+  })
+
+  amp.on('tool.result', async (event, ctx) => {
+    const name = loadedSkillName(event)
+    if (!name) return
+
+    try {
+      await ctx.ui.notify(`Loaded skill: ${name}`)
+    } catch (error) {
+      if (!(error instanceof Error) || !amp.helpers.isPluginUINotAvailableError(error)) {
+        throw error
+      }
+    }
   })
 }

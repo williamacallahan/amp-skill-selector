@@ -32,6 +32,8 @@ Once a thread is active:
 
 The palette is Amp's native UI, including its filtering, scrolling, and keyboard behavior. A selection applies once to the active thread's next submitted message. On Amp's welcome screen there is no thread to attach a selection to, so use `$skill-name` for the first message.
 
+Whenever Amp successfully loads a skill—from this selector, automatic model choice, another skill, or another plugin—the CLI shows a `Loaded skill: <name>` notification.
+
 ## Use a skill reference
 
 Dollar-prefixed references work at the beginning or within a submitted message:
