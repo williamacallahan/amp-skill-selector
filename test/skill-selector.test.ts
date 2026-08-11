@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict'
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import test from 'node:test'
 import { setImmediate } from 'node:timers/promises'
 
@@ -53,6 +56,21 @@ test('ignores references inside inline code', () => {
 
 test('returns the first invoked skill in message order', () => {
   assert.equal(findInvokedSkill('$test then $ponytail', references), 'test')
+})
+
+test('treats slash references that name existing paths as paths', () => {
+  const isExistingPath = (name: string) => name === 'test'
+
+  assert.equal(findInvokedSkill('check the /test directory', references, isExistingPath), undefined)
+  assert.equal(findInvokedSkill('check /test then /ponytail this', references, isExistingPath), 'ponytail')
+  assert.equal(findInvokedSkill('use $test here', references, isExistingPath), 'test')
+})
+
+test('recognizes references wrapped in quotes, parentheses, or brackets', () => {
+  assert.equal(findInvokedSkill('use ($ponytail) here', references), 'ponytail')
+  assert.equal(findInvokedSkill('use "$ponytail" here', references), 'ponytail')
+  assert.equal(findInvokedSkill("use '$ponytail' here", references), 'ponytail')
+  assert.equal(findInvokedSkill('use [$ponytail] here', references), 'ponytail')
 })
 
 test('builds an explicit canonical skill-tool instruction', () => {
@@ -138,6 +156,8 @@ test('logs command registration failures', async () => {
     logger: { log: (...args: unknown[]) => logs.push(args) },
     registerCommand: () => { throw new Error('registration failed') },
     on: () => undefined,
+    system: { workspaceRoot: null },
+    helpers: { filePathFromURI: () => '' },
   }
 
   skillSelector(amp as never)
@@ -145,4 +165,41 @@ test('logs command registration failures', async () => {
 
   assert.equal(logs[0]?.[0], 'Unable to register skill commands:')
   assert.match(String(logs[0]?.[1]), /registration failed/)
+})
+
+test('resolves path collisions against the workspace root, not the process cwd', async (t) => {
+  const workspace = mkdtempSync(join(tmpdir(), 'skill-selector-'))
+  mkdirSync(join(workspace, 'ponytail'))
+  t.after(() => rmSync(workspace, { recursive: true, force: true }))
+
+  const handlers = new Map<string, (event: unknown) => unknown>()
+  const amp = {
+    $: () => Promise.resolve({
+      exitCode: 0,
+      stdout: JSON.stringify({
+        skills: [{ name: 'ponytail', description: 'Prefer the simplest code.' }],
+      }),
+      stderr: '',
+    }),
+    logger: { log: () => undefined },
+    registerCommand: () => undefined,
+    on: (event: string, handler: (event: unknown) => unknown) => handlers.set(event, handler),
+    system: { workspaceRoot: 'uri:workspace' },
+    helpers: { filePathFromURI: (uri: unknown) => (uri === 'uri:workspace' ? workspace : '') },
+  }
+
+  skillSelector(amp as never)
+  const agentStart = handlers.get('agent.start')
+  assert.ok(agentStart)
+
+  assert.equal(
+    await agentStart({ thread: { id: 'T-thread-1' }, message: 'use /ponytail here', id: 'm-1' }),
+    undefined,
+  )
+
+  const invoked = await agentStart({ thread: { id: 'T-thread-1' }, message: 'use $ponytail here', id: 'm-2' })
+  assert.match(
+    String((invoked as { message?: { content?: string } })?.message?.content),
+    /"name":"ponytail"/,
+  )
 })

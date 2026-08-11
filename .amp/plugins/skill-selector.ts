@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+
 import type { PluginAPI, ThreadID } from '@ampcode/plugin'
 
 export const description = 'Invoke installed skills from Amp’s native command palette or $name and embedded /name references.'
@@ -46,6 +49,7 @@ function isInsideCode(message: string, index: number): boolean {
 export function findInvokedSkill(
   message: string,
   references: RegExp | undefined,
+  isExistingPath?: (name: string) => boolean,
 ): string | undefined {
   if (!references) return undefined
 
@@ -53,6 +57,7 @@ export function findInvokedSkill(
     const sigilIndex = match.index + match[1].length
     if (isInsideCode(message, sigilIndex)) continue
     if (match[2] === '/' && sigilIndex === 0) continue
+    if (match[2] === '/' && isExistingPath?.(match[3])) continue
     return match[3]
   }
 
@@ -91,8 +96,9 @@ export function takeInvokedSkill(
   references: RegExp | undefined,
   threadID: ThreadID,
   queued: Map<ThreadID, string>,
+  isExistingPath?: (name: string) => boolean,
 ): string | undefined {
-  const explicit = findInvokedSkill(message, references)
+  const explicit = findInvokedSkill(message, references, isExistingPath)
   const selected = explicit ?? queued.get(threadID)
   queued.delete(threadID)
   return selected
@@ -120,6 +126,12 @@ export function loadedSkillName(result: {
 
 export default function skillSelector(amp: PluginAPI) {
   const queued = new Map<ThreadID, string>()
+  const workspaceRoot = amp.system.workspaceRoot === null
+    ? undefined
+    : amp.helpers.filePathFromURI(amp.system.workspaceRoot)
+  const isExistingPath = (candidate: string) =>
+    (workspaceRoot !== undefined && existsSync(join(workspaceRoot, candidate)))
+    || existsSync(`/${candidate}`)
   const inventoryPromise = amp.$`amp skill list --json`
     .then((result) => {
       if (result.exitCode !== 0) {
@@ -185,6 +197,7 @@ export default function skillSelector(amp: PluginAPI) {
       references,
       event.thread.id,
       queued,
+      isExistingPath,
     )
 
     if (!name) return

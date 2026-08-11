@@ -40,6 +40,7 @@ Token recognition is deliberately narrow:
 - `/` must occur after the first character and at a token boundary.
 - Quotes and brackets may surround a reference.
 - References inside inline or fenced Markdown code are ignored.
+- An embedded `/name` that also names an existing file or directory (workspace-relative or at the filesystem root) is treated as a path, not a skill reference.
 - Only the first recognized explicit skill is invoked. Multi-skill orchestration remains ordinary prompt text rather than hidden plugin policy.
 
 ## Failure behavior

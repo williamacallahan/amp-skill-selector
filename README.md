@@ -63,6 +63,7 @@ Whenever Amp successfully loads a skill—from this selector, automatic model ch
 | `[$skill-name]`, `($skill-name)`, or `"/skill-name"` | Yes | Wrappers go around the complete reference. |
 | `$[skill-name]` or `/[skill-name]` | No | Brackets cannot appear between the prefix and name. |
 | References inside inline or fenced Markdown code | No | Ignored to avoid accidental invocation in examples and shell commands. |
+| `/skill-name` that also names an existing path | No | A slash reference matching a file or directory in the workspace or at the filesystem root (for example `/test` in a repository with a `test/` directory) is treated as a path. Use `$skill-name` instead. |
 
 `$` and embedded `/` references are matched after submission; they do not offer live autofill.
 For searchable autocomplete, use the native command palette with `Ctrl+O` in an active thread.
