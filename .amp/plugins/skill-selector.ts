@@ -21,14 +21,26 @@ export function createSkillReferenceMatcher(
   )
 }
 
-function isInsideCodeFence(message: string, index: number): boolean {
+function isInsideCode(message: string, index: number): boolean {
+  const before = message.slice(0, index)
   let fence: string | undefined
-  for (const match of message.slice(0, index).matchAll(/^ {0,3}(`{3,}|~{3,})/gm)) {
-    const marker = match[1][0]
-    if (!fence) fence = marker
-    else if (fence === marker) fence = undefined
+  let inline: number | undefined
+  for (const match of before.matchAll(/^ {0,3}(`{3,}|~{3,})[^\n]*|(`+)/gm)) {
+    if (match[1]) {
+      const marker = match[1][0]
+      if (!fence) fence = marker
+      else if (fence === marker) fence = undefined
+    } else if (!fence) {
+      let backslashes = 0
+      for (let position = match.index - 1; before[position] === '\\'; position--) backslashes++
+      if (backslashes % 2 === 1) continue
+
+      const ticks = match[2].length
+      if (!inline) inline = ticks
+      else if (inline === ticks) inline = undefined
+    }
   }
-  return fence !== undefined
+  return fence !== undefined || inline !== undefined
 }
 
 export function findInvokedSkill(
@@ -39,7 +51,7 @@ export function findInvokedSkill(
 
   for (const match of message.matchAll(references)) {
     const sigilIndex = match.index + match[1].length
-    if (isInsideCodeFence(message, sigilIndex)) continue
+    if (isInsideCode(message, sigilIndex)) continue
     if (match[2] === '/' && sigilIndex === 0) continue
     return match[3]
   }

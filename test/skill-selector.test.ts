@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { setImmediate } from 'node:timers/promises'
 
-import {
+import skillSelector, {
   cancelQueuedSkill,
   createSkillReferenceMatcher,
   findInvokedSkill,
@@ -41,6 +42,13 @@ test('ignores references inside fenced code', () => {
     findInvokedSkill('```sh\n$test command\n```\nUse $ponytail', references),
     'ponytail',
   )
+})
+
+test('ignores references inside inline code', () => {
+  assert.equal(findInvokedSkill('Run `echo $test`.', references), undefined)
+  assert.equal(findInvokedSkill('Run ``echo /test``.', references), undefined)
+  assert.equal(findInvokedSkill('Mention `$test`, then use $ponytail.', references), 'ponytail')
+  assert.equal(findInvokedSkill('Literal \\` then use $ponytail.', references), 'ponytail')
 })
 
 test('returns the first invoked skill in message order', () => {
@@ -115,4 +123,26 @@ test('reports the name only after a successful built-in skill result', () => {
     loadedSkillName({ tool: 'skill', status: 'done', input: { name: 42 } }),
     undefined,
   )
+})
+
+test('logs command registration failures', async () => {
+  const logs: unknown[][] = []
+  const amp = {
+    $: () => Promise.resolve({
+      exitCode: 0,
+      stdout: JSON.stringify({
+        skills: [{ name: 'ponytail', description: 'Prefer the simplest code.' }],
+      }),
+      stderr: '',
+    }),
+    logger: { log: (...args: unknown[]) => logs.push(args) },
+    registerCommand: () => { throw new Error('registration failed') },
+    on: () => undefined,
+  }
+
+  skillSelector(amp as never)
+  await setImmediate()
+
+  assert.equal(logs[0]?.[0], 'Unable to register skill commands:')
+  assert.match(String(logs[0]?.[1]), /registration failed/)
 })
