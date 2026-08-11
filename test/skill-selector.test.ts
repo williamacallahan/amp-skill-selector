@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  createSkillReferenceMatcher,
   findInvokedSkill,
   invocationInstruction,
   parseSkillInventory,
@@ -9,26 +10,27 @@ import {
 } from '../.amp/plugins/skill-selector.ts'
 
 const skills = ['ponytail', 'ce-simplify-code', 'test']
+const references = createSkillReferenceMatcher(skills)
 
 test('finds dollar-prefixed skills at the start or within a message', () => {
-  assert.equal(findInvokedSkill('$ponytail simplify this', skills), 'ponytail')
-  assert.equal(findInvokedSkill('Please use $ce-simplify-code here', skills), 'ce-simplify-code')
+  assert.equal(findInvokedSkill('$ponytail simplify this', references), 'ponytail')
+  assert.equal(findInvokedSkill('Please use $ce-simplify-code here', references), 'ce-simplify-code')
 })
 
 test('finds embedded slash-prefixed skills but reserves a leading slash', () => {
-  assert.equal(findInvokedSkill('Please /ponytail simplify this', skills), 'ponytail')
-  assert.equal(findInvokedSkill('/ponytail simplify this', skills), undefined)
+  assert.equal(findInvokedSkill('Please /ponytail simplify this', references), 'ponytail')
+  assert.equal(findInvokedSkill('/ponytail simplify this', references), undefined)
 })
 
 test('recognizes punctuation boundaries without matching unknown or partial names', () => {
-  assert.equal(findInvokedSkill('Use $test, then report.', skills), 'test')
-  assert.equal(findInvokedSkill('Use $testing here', skills), undefined)
-  assert.equal(findInvokedSkill('The price is $testable.', skills), undefined)
-  assert.equal(findInvokedSkill('Path/test is not a skill token', skills), undefined)
+  assert.equal(findInvokedSkill('Use $test, then report.', references), 'test')
+  assert.equal(findInvokedSkill('Use $testing here', references), undefined)
+  assert.equal(findInvokedSkill('The price is $testable.', references), undefined)
+  assert.equal(findInvokedSkill('Path/test is not a skill token', references), undefined)
 })
 
 test('returns the first invoked skill in message order', () => {
-  assert.equal(findInvokedSkill('$test then $ponytail', skills), 'test')
+  assert.equal(findInvokedSkill('$test then $ponytail', references), 'test')
 })
 
 test('builds an explicit canonical skill-tool instruction', () => {
@@ -51,22 +53,22 @@ test('parses Amp canonical skill inventory', () => {
 })
 
 test('explicit references override and consume a queued palette selection', () => {
-  const queued = new Map([['thread-1', 'ce-simplify-code']])
+  const queued = new Map([['T-thread-1' as const, 'ce-simplify-code']])
 
   assert.equal(
-    takeInvokedSkill('$ponytail simplify this', skills, 'thread-1', queued),
+    takeInvokedSkill('$ponytail simplify this', references, 'T-thread-1', queued),
     'ponytail',
   )
-  assert.equal(queued.has('thread-1'), false)
+  assert.equal(queued.has('T-thread-1'), false)
 })
 
 test('queued selections are one-shot and isolated by thread', () => {
   const queued = new Map([
-    ['thread-1', 'ponytail'],
-    ['thread-2', 'ce-simplify-code'],
+    ['T-thread-1' as const, 'ponytail'],
+    ['T-thread-2' as const, 'ce-simplify-code'],
   ])
 
-  assert.equal(takeInvokedSkill('Simplify this', skills, 'thread-1', queued), 'ponytail')
-  assert.equal(takeInvokedSkill('Again', skills, 'thread-1', queued), undefined)
-  assert.equal(queued.get('thread-2'), 'ce-simplify-code')
+  assert.equal(takeInvokedSkill('Simplify this', references, 'T-thread-1', queued), 'ponytail')
+  assert.equal(takeInvokedSkill('Again', references, 'T-thread-1', queued), undefined)
+  assert.equal(queued.get('T-thread-2'), 'ce-simplify-code')
 })

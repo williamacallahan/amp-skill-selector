@@ -1,4 +1,4 @@
-import type { PluginAPI } from '@ampcode/plugin'
+import type { PluginAPI, ThreadID } from '@ampcode/plugin'
 
 export const description = 'Invoke installed skills from Amp’s native command palette or $name and embedded /name references.'
 
@@ -9,20 +9,23 @@ interface Skill {
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-export function findInvokedSkill(
-  message: string,
+export function createSkillReferenceMatcher(
   installedNames: readonly string[],
-): string | undefined {
+): RegExp | undefined {
   if (installedNames.length === 0) return undefined
 
-  const names = [...installedNames]
-    .sort((a, b) => b.length - a.length)
-    .map(escapeRegExp)
-    .join('|')
-  const references = new RegExp(
+  const names = installedNames.map(escapeRegExp).join('|')
+  return new RegExp(
     `(^|\\s)([$/])(${names})(?=$|[\\s.,!?;:])`,
     'g',
   )
+}
+
+export function findInvokedSkill(
+  message: string,
+  references: RegExp | undefined,
+): string | undefined {
+  if (!references) return undefined
 
   for (const match of message.matchAll(references)) {
     if (match[2] === '/' && match.index === 0) continue
@@ -61,31 +64,35 @@ export function parseSkillInventory(json: string): Skill[] {
 
 export function takeInvokedSkill(
   message: string,
-  installedNames: readonly string[],
-  threadID: string,
-  queued: Map<string, string>,
+  references: RegExp | undefined,
+  threadID: ThreadID,
+  queued: Map<ThreadID, string>,
 ): string | undefined {
-  const explicit = findInvokedSkill(message, installedNames)
+  const explicit = findInvokedSkill(message, references)
   const selected = explicit ?? queued.get(threadID)
   queued.delete(threadID)
   return selected
 }
 
 export default function skillSelector(amp: PluginAPI) {
-  const queued = new Map<string, string>()
-  const skillsPromise = amp.$`amp skill list --json`
+  const queued = new Map<ThreadID, string>()
+  const inventoryPromise = amp.$`amp skill list --json`
     .then((result) => {
       if (result.exitCode !== 0) {
         throw new Error(result.stderr.trim() || `amp skill list exited ${result.exitCode}`)
       }
-      return parseSkillInventory(result.stdout)
+      const skills = parseSkillInventory(result.stdout)
+      return {
+        skills,
+        references: createSkillReferenceMatcher(skills.map((skill) => skill.name)),
+      }
     })
     .catch((error) => {
       amp.logger.log('Unable to load skills:', error)
-      return []
+      return { skills: [], references: undefined }
     })
 
-  void skillsPromise.then((skills) => {
+  void inventoryPromise.then(({ skills }) => {
     for (const skill of skills) {
       amp.registerCommand(
         `invoke-${skill.name}`,
@@ -108,10 +115,10 @@ export default function skillSelector(amp: PluginAPI) {
   })
 
   amp.on('agent.start', async (event) => {
-    const skills = await skillsPromise
+    const { references } = await inventoryPromise
     const name = takeInvokedSkill(
       event.message,
-      skills.map((skill) => skill.name),
+      references,
       event.thread.id,
       queued,
     )
