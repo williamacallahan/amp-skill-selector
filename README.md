@@ -4,16 +4,19 @@ Invoke installed Amp skills from Amp's native command palette or explicit skill 
 
 ## Install
 
-For every project on this machine:
+Clone the repository, then install it for every project on this machine:
 
 ```bash
-amp plugins add https://raw.githubusercontent.com/WilliamAGH/amp-skill-selector/main/.amp/plugins/skill-selector.ts
+git clone https://github.com/WilliamAGH/amp-skill-selector.git
+mkdir -p ~/.config/amp/plugins
+cp amp-skill-selector/.amp/plugins/skill-selector.ts ~/.config/amp/plugins/
 ```
 
-For one workspace:
+To install it for one workspace instead, copy the plugin into that repository:
 
 ```bash
-amp plugins add --target workspace https://raw.githubusercontent.com/WilliamAGH/amp-skill-selector/main/.amp/plugins/skill-selector.ts
+mkdir -p .amp/plugins
+cp /path/to/amp-skill-selector/.amp/plugins/skill-selector.ts .amp/plugins/
 ```
 
 Run `plugins: reload` from Amp's command palette after installation. Reload the plugin again after adding or removing skills so its generated commands match Amp's current skill inventory.
