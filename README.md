@@ -45,22 +45,17 @@ Whenever Amp successfully loads a skill—from this selector, automatic model ch
 
 ## Use a skill reference
 
-Dollar-prefixed references work at the beginning or within a submitted message:
+| Form | Supported | Behavior |
+| --- | --- | --- |
+| `$skill-name` | Yes | Works anywhere, including as the first text in a new thread. |
+| `/skill-name` after other text | Yes | Example: `Please /ponytail simplify this`. |
+| `/skill-name` as the first text | No | Reserved for Amp's built-in commands. |
+| `[$skill-name]`, `($skill-name)`, or `"/skill-name"` | Yes | Wrappers go around the complete reference. |
+| `$[skill-name]` or `/[skill-name]` | No | Brackets cannot appear between the prefix and name. |
+| References inside inline or fenced Markdown code | No | Ignored to avoid accidental invocation in examples and shell commands. |
 
-```text
-$ponytail simplify this implementation
-Please use $ce-simplify-code on the current changes
-```
-
-Slash-prefixed references work within a message:
-
-```text
-Please /ponytail simplify this implementation
-```
-
-A slash at the beginning is reserved for Amp's built-in commands, so `/ponytail` is not intercepted.
-References may be wrapped in quotes or brackets. References inside inline or fenced Markdown
-code are ignored so shell and documentation examples do not load skills accidentally.
+`$` and embedded `/` references are matched after submission; they do not offer live autofill.
+For searchable autocomplete, use the native command palette with `Ctrl+O` in an active thread.
 
 ## How invocation works
 
