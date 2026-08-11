@@ -63,7 +63,7 @@ git commit -m "test: define skill invocation syntax"
 
 **Interfaces:**
 - Consumes: `PluginAPI.$`, `PluginAPI.registerCommand`, `PluginAPI.on('agent.start', ...)`
-- Produces: native commands with category `skills` and each installed skill name as the title
+- Produces: native commands with category `invoke skill` and each installed skill name as the title
 - Produces: a one-shot `Map<ThreadID, string>` queue consumed by the matching thread's next `agent.start`
 
 - [ ] **Step 1: Add tests for JSON inventory parsing and one-shot selection resolution**
@@ -77,7 +77,7 @@ Expected: FAIL because inventory parsing and queue resolution are absent.
 
 - [ ] **Step 3: Implement plugin registration**
 
-At plugin load, start one canonical `amp skill list --json` request. Parse and validate skill entries; register `skills: <name>` commands whose handlers require an active thread, queue by its ID, and notify the user. Await the same inventory in `agent.start`, resolve explicit text before queued state, consume the queue before returning, and return hidden canonical invocation instructions only when a skill was selected.
+At plugin load, start one canonical `amp skill list --json` request. Parse and validate skill entries; register `invoke skill: <name>` commands whose handlers require an active thread, queue by its ID, and notify the user. Await the same inventory in `agent.start`, resolve explicit text before queued state, consume the queue before returning, and return hidden canonical invocation instructions only when a skill was selected.
 
 - [ ] **Step 4: Run automated verification**
 
@@ -118,7 +118,7 @@ Expected: no whitespace errors, all tests PASS, plugin event succeeds.
 
 - [ ] **Step 3: Dogfood native palette and real invocation through Herdr**
 
-Start Amp in this repository in a separate Herdr pane. Open the native command palette, type a partial installed skill name, capture ANSI output proving `skills: ponytail` and `skills: ce-simplify-code` are filtered commands, select one, submit a harmless request, and inspect the transcript/output for the real built-in `skill` tool call. Repeat with `$ponytail` and embedded `/ce-simplify-code`; confirm leading `/ponytail` remains under built-in command handling.
+Start Amp in this repository in a separate Herdr pane. Open the native command palette, type a partial installed skill name, capture ANSI output proving `invoke skill: ponytail` and `invoke skill: ce-simplify-code` are filtered commands, select one, submit a harmless request, and inspect the transcript/output for the real built-in `skill` tool call. Repeat with `$ponytail` and embedded `/ce-simplify-code`; confirm leading `/ponytail` remains under built-in command handling.
 
 - [ ] **Step 4: Apply ce-simplify-code review**
 

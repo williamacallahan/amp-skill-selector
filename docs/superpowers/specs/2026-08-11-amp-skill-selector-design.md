@@ -8,7 +8,7 @@ Supported entry points:
 
 - `$skill-name task` anywhere in a submitted message.
 - `/skill-name task` within a submitted message, except when `/` is its first character.
-- One native `skills: <name>` command-palette action per installed skill. Amp's palette provides typed filtering, scrolling, and keyboard selection; choosing a command queues that skill for the next submitted message.
+- One native `invoke skill: <name>` command-palette action per installed skill. Amp's palette provides typed filtering, scrolling, and keyboard selection; choosing a command queues that skill for the next submitted message.
 
 ## Platform boundary
 

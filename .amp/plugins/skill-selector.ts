@@ -109,7 +109,7 @@ export default function skillSelector(amp: PluginAPI) {
         `invoke-${skill.name}`,
         {
           title: skill.name,
-          category: 'skills',
+          category: 'invoke skill',
           description: skill.description,
         },
         async (ctx) => {
