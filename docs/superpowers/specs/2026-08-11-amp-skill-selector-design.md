@@ -27,7 +27,7 @@ The plugin contains three responsibilities in one TypeScript file:
 2. **Select or resolve a skill** by registering every installed skill as a native command-palette command and by recognizing submitted `$name`/embedded `/name` tokens. The native palette owns autocomplete, scrolling, and keyboard behavior.
 3. **Request canonical invocation** by returning hidden `agent.start` context requiring the agent to call `skill({ name: "<name>" })` before any other action.
 
-Command-palette selections are held by thread ID as one-shot queued skills, so concurrent threads cannot consume each other's selection. The next `agent.start` for that thread consumes and clears its queue before returning invocation context. An explicit token in that same message takes precedence over the queue so user text wins; the stale queued selection is also cleared.
+Command-palette selections are held by thread ID as one-shot queued skills, so concurrent threads cannot consume each other's selection. A selection made with no active thread (Amp's welcome screen) is held under a reserved any-thread key and consumed only by the first message of a thread the plugin has not yet seen an agent turn from — typically the thread that first message creates. Threads that already had a turn in this plugin process never consume it; a thread resumed after a plugin reload counts as unseen, which is the accepted residual. The threadless entry is cleared only when consumed or explicitly cancelled. The next `agent.start` for a thread consumes and clears that thread's own queue before returning invocation context. An explicit token in that same message takes precedence over the queue so user text wins; the thread's stale queued selection is also cleared.
 
 The native `invoke skill: cancel queued selection` command lets the active thread discard a selection before submitting another message.
 
@@ -46,7 +46,7 @@ Token recognition is deliberately narrow:
 ## Failure behavior
 
 - If skill discovery fails, the plugin logs a concise error and registers no skill commands.
-- If no thread is active, selection reports that a thread is required.
+- If no thread is active, the selection queues for the next submitted message in any thread.
 - Messages without a recognized skill add no context and preserve normal Amp behavior.
 - Unknown sigil names are not intercepted because `$` and `/` are common text. Amp handles the original message normally.
 

@@ -36,14 +36,12 @@ Then run `plugins: reload` from Amp's command palette; `amp plugins list` confir
 
 ## Use the native command palette
 
-Once a thread is active:
-
 1. Open Amp's command palette with `Ctrl+O`.
 2. Type part of a skill name, such as `ponytail` or `simplify`.
 3. Select the matching `invoke skill: <name>` command.
 4. Submit the task that should use the skill.
 
-The palette is Amp's native UI, including its filtering, scrolling, and keyboard behavior. A selection applies once to the active thread's next submitted message. On Amp's welcome screen there is no thread to attach a selection to, so use `$skill-name` for the first message.
+The palette is Amp's native UI, including its filtering, scrolling, and keyboard behavior. A selection applies once to the active thread's next submitted message. On Amp's welcome screen — before any thread exists — a selection applies to the first message of the next new thread, which is typically the message you submit right there. Threads that already exchanged messages do not pick it up.
 
 To discard a selection before submitting the next message, run
 `invoke skill: cancel queued selection` from the palette.

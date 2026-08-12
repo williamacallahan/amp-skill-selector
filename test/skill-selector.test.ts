@@ -6,6 +6,7 @@ import test from 'node:test'
 import { setImmediate } from 'node:timers/promises'
 
 import skillSelector, {
+  ANY_THREAD,
   cancelQueuedSkill,
   createSkillReferenceMatcher,
   findInvokedSkill,
@@ -111,6 +112,118 @@ test('queued selections are one-shot and isolated by thread', () => {
   assert.equal(takeInvokedSkill('Simplify this', references, 'T-thread-1', queued), 'ponytail')
   assert.equal(takeInvokedSkill('Again', references, 'T-thread-1', queued), undefined)
   assert.equal(queued.get('T-thread-2'), 'ce-simplify-code')
+})
+
+test('threadless selections apply to the next message in any thread', () => {
+  const queued = new Map([[ANY_THREAD, 'ponytail']])
+
+  assert.equal(takeInvokedSkill('Simplify this', references, 'T-thread-9', queued), 'ponytail')
+  assert.equal(queued.size, 0)
+})
+
+test('a thread-specific selection wins and the threadless one survives for its target', () => {
+  const queued = new Map([
+    ['T-thread-1' as const, 'ponytail'],
+    [ANY_THREAD, 'ce-simplify-code'],
+  ])
+
+  assert.equal(takeInvokedSkill('Simplify this', references, 'T-thread-1', queued), 'ponytail')
+  assert.equal(queued.has('T-thread-1'), false)
+  assert.equal(queued.get(ANY_THREAD), 'ce-simplify-code')
+})
+
+test('a previously seen thread does not consume a threadless pending selection', () => {
+  const queued = new Map([[ANY_THREAD, 'ponytail']])
+  const seen = new Set(['T-old' as const])
+
+  assert.equal(
+    takeInvokedSkill('Continue where we left off', references, 'T-old', queued, undefined, seen),
+    undefined,
+  )
+  assert.equal(queued.get(ANY_THREAD), 'ponytail')
+
+  assert.equal(
+    takeInvokedSkill('First message', references, 'T-new', queued, undefined, seen),
+    'ponytail',
+  )
+  assert.equal(queued.size, 0)
+  assert.ok(seen.has('T-new'))
+})
+
+test('queues a welcome-screen selection without an active thread', async () => {
+  const handlers = new Map<string, (event: unknown) => unknown>()
+  const commands = new Map<string, (ctx: unknown) => Promise<void>>()
+  const notices: string[] = []
+  const amp = {
+    $: () => Promise.resolve({
+      exitCode: 0,
+      stdout: JSON.stringify({
+        skills: [{ name: 'ponytail', description: 'Prefer the simplest code.' }],
+      }),
+      stderr: '',
+    }),
+    logger: { log: () => undefined },
+    registerCommand: (id: string, _options: unknown, handler: (ctx: unknown) => Promise<void>) => {
+      commands.set(id, handler)
+    },
+    on: (event: string, handler: (event: unknown) => unknown) => handlers.set(event, handler),
+    system: { workspaceRoot: null },
+    helpers: { filePathFromURI: () => '' },
+  }
+
+  skillSelector(amp as never)
+  await setImmediate()
+
+  const invoke = commands.get('invoke-ponytail')
+  assert.ok(invoke)
+  await invoke({ ui: { notify: async (message: string) => { notices.push(message) } } })
+  assert.match(String(notices[0]), /ponytail/)
+  assert.doesNotMatch(String(notices[0]), /open a thread/i)
+
+  const agentStart = handlers.get('agent.start')
+  assert.ok(agentStart)
+  const invoked = await agentStart({ thread: { id: 'T-brand-new' }, message: 'Simplify this', id: 'm-1' })
+  assert.match(
+    String((invoked as { message?: { content?: string } })?.message?.content),
+    /"name":"ponytail"/,
+  )
+})
+
+test('cancelling from a thread also clears a threadless pending selection', async () => {
+  const handlers = new Map<string, (event: unknown) => unknown>()
+  const commands = new Map<string, (ctx: unknown) => Promise<void>>()
+  const notices: string[] = []
+  const amp = {
+    $: () => Promise.resolve({
+      exitCode: 0,
+      stdout: JSON.stringify({
+        skills: [{ name: 'ponytail', description: 'Prefer the simplest code.' }],
+      }),
+      stderr: '',
+    }),
+    logger: { log: () => undefined },
+    registerCommand: (id: string, _options: unknown, handler: (ctx: unknown) => Promise<void>) => {
+      commands.set(id, handler)
+    },
+    on: (event: string, handler: (event: unknown) => unknown) => handlers.set(event, handler),
+    system: { workspaceRoot: null },
+    helpers: { filePathFromURI: () => '' },
+  }
+
+  skillSelector(amp as never)
+  await setImmediate()
+
+  const notify = async (message: string) => { notices.push(message) }
+  await commands.get('invoke-ponytail')?.({ ui: { notify } })
+  await commands.get('cancel-queued-skill')?.({ ui: { notify }, thread: { id: 'T-thread-1' } })
+  assert.match(String(notices[1]), /Cancelled queued skill: ponytail/)
+
+  const invoked = await handlers.get('agent.start')?.({
+    thread: { id: 'T-thread-1' },
+    message: 'Simplify this',
+    id: 'm-1',
+  })
+  assert.equal(invoked, undefined)
 })
 
 test('cancels only the active thread queued selection', () => {

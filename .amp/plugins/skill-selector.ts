@@ -91,16 +91,25 @@ export function parseSkillInventory(json: string): Skill[] {
   return skills as Skill[]
 }
 
+/** Queue key for a selection made with no active thread, such as Amp's welcome screen. */
+export const ANY_THREAD: ThreadID = 'T-*'
+
 export function takeInvokedSkill(
   message: string,
   references: RegExp | undefined,
   threadID: ThreadID,
   queued: Map<ThreadID, string>,
   isExistingPath?: (name: string) => boolean,
+  seenThreads?: Set<ThreadID>,
 ): string | undefined {
+  const firstTurn = seenThreads === undefined || !seenThreads.has(threadID)
+  seenThreads?.add(threadID)
+
   const explicit = findInvokedSkill(message, references, isExistingPath)
-  const selected = explicit ?? queued.get(threadID)
+  const anyQueued = firstTurn ? queued.get(ANY_THREAD) : undefined
+  const selected = explicit ?? queued.get(threadID) ?? anyQueued
   queued.delete(threadID)
+  if (selected !== undefined && selected === anyQueued) queued.delete(ANY_THREAD)
   return selected
 }
 
@@ -126,6 +135,7 @@ export function loadedSkillName(result: {
 
 export default function skillSelector(amp: PluginAPI) {
   const queued = new Map<ThreadID, string>()
+  const seenThreads = new Set<ThreadID>()
   const workspaceRoot = amp.system.workspaceRoot === null
     ? undefined
     : amp.helpers.filePathFromURI(amp.system.workspaceRoot)
@@ -157,12 +167,8 @@ export default function skillSelector(amp: PluginAPI) {
         description: 'Cancel the skill queued for this thread’s next message.',
       },
       async (ctx) => {
-        if (!ctx.thread) {
-          await ctx.ui.notify('No active thread has a queued skill.')
-          return
-        }
-
-        const name = cancelQueuedSkill(ctx.thread.id, queued)
+        const name = (ctx.thread && cancelQueuedSkill(ctx.thread.id, queued))
+          || cancelQueuedSkill(ANY_THREAD, queued)
         await ctx.ui.notify(name ? `Cancelled queued skill: ${name}` : 'No skill is queued.')
       },
     )
@@ -176,12 +182,7 @@ export default function skillSelector(amp: PluginAPI) {
           description: skill.description,
         },
         async (ctx) => {
-          if (!ctx.thread) {
-            await ctx.ui.notify('Open a thread before selecting a skill.')
-            return
-          }
-
-          queued.set(ctx.thread.id, skill.name)
+          queued.set(ctx.thread?.id ?? ANY_THREAD, skill.name)
           await ctx.ui.notify(`Queued skill for your next message: ${skill.name}`)
         },
       )
@@ -198,6 +199,7 @@ export default function skillSelector(amp: PluginAPI) {
       event.thread.id,
       queued,
       isExistingPath,
+      seenThreads,
     )
 
     if (!name) return
