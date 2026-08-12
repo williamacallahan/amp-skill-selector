@@ -68,6 +68,10 @@ export function invocationInstruction(name: string): string {
   return `The user explicitly invoked the ${JSON.stringify(name)} skill. Before any other action, call the built-in \`skill\` tool exactly once with ${JSON.stringify({ name })}, then follow the loaded skill instructions for this request.`
 }
 
+export function immediateInvocationInstruction(name: string): string {
+  return `The user explicitly invoked the ${JSON.stringify(name)} skill. Call the built-in \`skill\` tool exactly once with ${JSON.stringify({ name })}, then stop and await the user's next message.`
+}
+
 export function parseSkillInventory(json: string): Skill[] {
   const inventory: unknown = JSON.parse(json)
   if (
@@ -165,7 +169,7 @@ export default function skillSelector(amp: PluginAPI) {
       {
         title: 'cancel queued selection',
         category: 'invoke skill',
-        description: 'Cancel the skill queued for this thread’s next message.',
+        description: 'Cancel a queued welcome-screen skill selection before it applies.',
       },
       async (ctx) => {
         const name = (ctx.thread && cancelQueuedSkill(ctx.thread.id, queued))
@@ -183,7 +187,15 @@ export default function skillSelector(amp: PluginAPI) {
           description: skill.description,
         },
         async (ctx) => {
-          queued.set(ctx.thread?.id ?? ANY_THREAD, skill.name)
+          if (ctx.thread) {
+            await ctx.thread.appendUserMessage({
+              type: 'user-message',
+              content: immediateInvocationInstruction(skill.name),
+            })
+            return
+          }
+
+          queued.set(ANY_THREAD, skill.name)
           await ctx.ui.notify(`Queued skill for your next message: ${skill.name}`)
         },
       )

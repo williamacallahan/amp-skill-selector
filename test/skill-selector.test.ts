@@ -202,6 +202,53 @@ test('queues a welcome-screen selection without an active thread', async () => {
   )
 })
 
+test('an in-thread selection invokes immediately instead of queueing', async () => {
+  const handlers = new Map<string, (event: unknown) => unknown>()
+  const commands = new Map<string, (ctx: unknown) => Promise<void>>()
+  const appended: Array<{ type?: string; content?: string }> = []
+  const amp = {
+    $: () => Promise.resolve({
+      exitCode: 0,
+      stdout: JSON.stringify({
+        skills: [{ name: 'ponytail', description: 'Prefer the simplest code.' }],
+      }),
+      stderr: '',
+    }),
+    logger: { log: () => undefined },
+    registerCommand: (id: string, _options: unknown, handler: (ctx: unknown) => Promise<void>) => {
+      commands.set(id, handler)
+    },
+    on: (event: string, handler: (event: unknown) => unknown) => handlers.set(event, handler),
+    system: { workspaceRoot: null },
+    helpers: { filePathFromURI: () => '' },
+  }
+
+  skillSelector(amp as never)
+  await setImmediate()
+
+  await commands.get('invoke-ponytail')?.({
+    ui: { notify: async () => undefined },
+    thread: {
+      id: 'T-thread-1',
+      appendUserMessage: async (message: { type?: string; content?: string }) => {
+        appended.push(message)
+      },
+    },
+  })
+
+  assert.equal(appended.length, 1)
+  assert.equal(appended[0]?.type, 'user-message')
+  assert.match(String(appended[0]?.content), /built-in `skill` tool/)
+  assert.match(String(appended[0]?.content), /"name":"ponytail"/)
+
+  const invoked = await handlers.get('agent.start')?.({
+    thread: { id: 'T-thread-1' },
+    message: 'follow-up with no reference',
+    id: 'm-2',
+  })
+  assert.equal(invoked, undefined)
+})
+
 test('cancelling from a thread also clears a threadless pending selection', async () => {
   const handlers = new Map<string, (event: unknown) => unknown>()
   const commands = new Map<string, (ctx: unknown) => Promise<void>>()

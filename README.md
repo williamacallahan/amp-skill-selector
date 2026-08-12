@@ -41,9 +41,9 @@ Then run `plugins: reload` from Amp's command palette; `amp plugins list` confir
 3. Select the matching `invoke skill: <name>` command.
 4. Submit the task that should use the skill.
 
-The palette is Amp's native UI, including its filtering, scrolling, and keyboard behavior. A selection applies once to the active thread's next submitted message. On Amp's welcome screen — before any thread exists — a selection applies to the first message of the next new thread, which is typically the message you submit right there. Threads that already exchanged messages do not pick it up.
+The palette is Amp's native UI, including its filtering, scrolling, and keyboard behavior. With a thread open, selecting a command invokes the skill immediately: the plugin sends a plugin-attributed message that performs the canonical `skill` tool call, with no follow-up submission needed. On Amp's welcome screen — before any thread exists — a selection is queued once and applies to the first message of the next new thread, which is typically the message you submit right there. Threads that already exchanged messages do not pick up a queued welcome-screen selection.
 
-To discard a selection before submitting the next message, run
+To discard a queued welcome-screen selection before it applies, run
 `invoke skill: cancel queued selection` from the palette.
 
 Amp's built-in `skills: list` remains the read-only inventory view. The `invoke skill:`
