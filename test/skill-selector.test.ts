@@ -163,7 +163,50 @@ test('a previously seen thread does not consume a threadless pending selection',
   assert.ok(seen.has('T-new'))
 })
 
-test('queues a welcome-screen selection without an active thread', async () => {
+test('a welcome-screen selection opens a thread and invokes immediately', async () => {
+  const commands = new Map<string, (ctx: unknown) => Promise<void>>()
+  const appended: Array<{ type?: string; content?: string }> = []
+  const createOptions: unknown[] = []
+  const amp = {
+    $: () => Promise.resolve({
+      exitCode: 0,
+      stdout: JSON.stringify({
+        skills: [{ name: 'ponytail', description: 'Prefer the simplest code.' }],
+      }),
+      stderr: '',
+    }),
+    logger: { log: () => undefined },
+    registerCommand: (id: string, _options: unknown, handler: (ctx: unknown) => Promise<void>) => {
+      commands.set(id, handler)
+    },
+    on: () => undefined,
+    system: { workspaceRoot: null },
+    helpers: { filePathFromURI: () => '' },
+    getBuiltinAgent: () => ({
+      createThread: async (options: unknown) => {
+        createOptions.push(options)
+        return {
+          id: 'T-created' as const,
+          appendUserMessage: async (message: { type?: string; content?: string }) => {
+            appended.push(message)
+          },
+        }
+      },
+    }),
+  }
+
+  skillSelector(amp as never)
+  await setImmediate()
+
+  await commands.get('invoke-ponytail')?.({ ui: { notify: async () => undefined } })
+
+  assert.deepEqual(createOptions, [{ show: true }])
+  assert.equal(appended.length, 1)
+  assert.equal(appended[0]?.type, 'user-message')
+  assert.match(String(appended[0]?.content), /"name":"ponytail"/)
+})
+
+test('falls back to queueing when a thread cannot be created', async () => {
   const handlers = new Map<string, (event: unknown) => unknown>()
   const commands = new Map<string, (ctx: unknown) => Promise<void>>()
   const notices: string[] = []
@@ -182,6 +225,7 @@ test('queues a welcome-screen selection without an active thread', async () => {
     on: (event: string, handler: (event: unknown) => unknown) => handlers.set(event, handler),
     system: { workspaceRoot: null },
     helpers: { filePathFromURI: () => '' },
+    getBuiltinAgent: () => { throw new Error('thread creation unavailable') },
   }
 
   skillSelector(amp as never)

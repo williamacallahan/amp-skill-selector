@@ -195,8 +195,16 @@ export default function skillSelector(amp: PluginAPI) {
             return
           }
 
-          queued.set(ANY_THREAD, skill.name)
-          await ctx.ui.notify(`Queued skill for your next message: ${skill.name}`)
+          try {
+            const thread = await amp.getBuiltinAgent('medium').createThread({ show: true })
+            await thread.appendUserMessage({
+              type: 'user-message',
+              content: immediateInvocationInstruction(skill.name),
+            })
+          } catch {
+            queued.set(ANY_THREAD, skill.name)
+            await ctx.ui.notify(`Queued skill for your next message: ${skill.name}`)
+          }
         },
       )
     }
