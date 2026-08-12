@@ -1,3 +1,6 @@
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+
 import type { PluginAPI, ThreadID } from '@ampcode/plugin'
 
 export const description = 'Invoke installed skills from Amp’s native command palette or $name and embedded /name references.'
@@ -46,6 +49,7 @@ function isInsideCode(message: string, index: number): boolean {
 export function findInvokedSkill(
   message: string,
   references: RegExp | undefined,
+  isExistingPath?: (name: string) => boolean,
 ): string | undefined {
   if (!references) return undefined
 
@@ -53,6 +57,7 @@ export function findInvokedSkill(
     const sigilIndex = match.index + match[1].length
     if (isInsideCode(message, sigilIndex)) continue
     if (match[2] === '/' && sigilIndex === 0) continue
+    if (match[2] === '/' && isExistingPath?.(match[3])) continue
     return match[3]
   }
 
@@ -61,6 +66,10 @@ export function findInvokedSkill(
 
 export function invocationInstruction(name: string): string {
   return `The user explicitly invoked the ${JSON.stringify(name)} skill. Before any other action, call the built-in \`skill\` tool exactly once with ${JSON.stringify({ name })}, then follow the loaded skill instructions for this request.`
+}
+
+export function immediateInvocationInstruction(name: string): string {
+  return `The user explicitly invoked the ${JSON.stringify(name)} skill from the command palette. Call the built-in \`skill\` tool exactly once with ${JSON.stringify({ name })}, then follow the loaded skill instructions and reply normally — this selection is the user's request; if the skill needs input only the user can provide, ask for it.`
 }
 
 export function parseSkillInventory(json: string): Skill[] {
@@ -86,16 +95,27 @@ export function parseSkillInventory(json: string): Skill[] {
   return skills as Skill[]
 }
 
+/** Queue key for a selection made with no active thread, such as Amp's welcome screen. */
+export const ANY_THREAD: ThreadID = 'T-*'
+
 export function takeInvokedSkill(
   message: string,
   references: RegExp | undefined,
   threadID: ThreadID,
   queued: Map<ThreadID, string>,
+  isExistingPath?: (name: string) => boolean,
+  seenThreads?: Set<ThreadID>,
 ): string | undefined {
-  const explicit = findInvokedSkill(message, references)
-  const selected = explicit ?? queued.get(threadID)
+  const firstTurn = seenThreads === undefined || !seenThreads.has(threadID)
+  seenThreads?.add(threadID)
+
+  const explicit = findInvokedSkill(message, references, isExistingPath)
+  const threadQueued = queued.get(threadID)
+  const anyQueued = firstTurn ? queued.get(ANY_THREAD) : undefined
+  const usedAny = explicit === undefined && threadQueued === undefined && anyQueued !== undefined
   queued.delete(threadID)
-  return selected
+  if (usedAny) queued.delete(ANY_THREAD)
+  return explicit ?? threadQueued ?? anyQueued
 }
 
 export function cancelQueuedSkill(
@@ -120,6 +140,13 @@ export function loadedSkillName(result: {
 
 export default function skillSelector(amp: PluginAPI) {
   const queued = new Map<ThreadID, string>()
+  const seenThreads = new Set<ThreadID>()
+  const workspaceRoot = amp.system.workspaceRoot === null
+    ? undefined
+    : amp.helpers.filePathFromURI(amp.system.workspaceRoot)
+  const isExistingPath = (candidate: string) =>
+    (workspaceRoot !== undefined && existsSync(join(workspaceRoot, candidate)))
+    || existsSync(`/${candidate}`)
   const inventoryPromise = amp.$`amp skill list --json`
     .then((result) => {
       if (result.exitCode !== 0) {
@@ -142,15 +169,11 @@ export default function skillSelector(amp: PluginAPI) {
       {
         title: 'cancel queued selection',
         category: 'invoke skill',
-        description: 'Cancel the skill queued for this thread’s next message.',
+        description: 'Cancel a queued welcome-screen skill selection before it applies.',
       },
       async (ctx) => {
-        if (!ctx.thread) {
-          await ctx.ui.notify('No active thread has a queued skill.')
-          return
-        }
-
-        const name = cancelQueuedSkill(ctx.thread.id, queued)
+        const name = (ctx.thread && cancelQueuedSkill(ctx.thread.id, queued))
+          || cancelQueuedSkill(ANY_THREAD, queued)
         await ctx.ui.notify(name ? `Cancelled queued skill: ${name}` : 'No skill is queued.')
       },
     )
@@ -164,13 +187,24 @@ export default function skillSelector(amp: PluginAPI) {
           description: skill.description,
         },
         async (ctx) => {
-          if (!ctx.thread) {
-            await ctx.ui.notify('Open a thread before selecting a skill.')
+          if (ctx.thread) {
+            await ctx.thread.appendUserMessage({
+              type: 'user-message',
+              content: immediateInvocationInstruction(skill.name),
+            })
             return
           }
 
-          queued.set(ctx.thread.id, skill.name)
-          await ctx.ui.notify(`Queued skill for your next message: ${skill.name}`)
+          try {
+            const thread = await amp.getBuiltinAgent('medium').createThread({ show: true })
+            await thread.appendUserMessage({
+              type: 'user-message',
+              content: immediateInvocationInstruction(skill.name),
+            })
+          } catch {
+            queued.set(ANY_THREAD, skill.name)
+            await ctx.ui.notify(`Queued skill for your next message: ${skill.name}`)
+          }
         },
       )
     }
@@ -185,6 +219,8 @@ export default function skillSelector(amp: PluginAPI) {
       references,
       event.thread.id,
       queued,
+      isExistingPath,
+      seenThreads,
     )
 
     if (!name) return

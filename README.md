@@ -36,16 +36,14 @@ Then run `plugins: reload` from Amp's command palette; `amp plugins list` confir
 
 ## Use the native command palette
 
-Once a thread is active:
-
 1. Open Amp's command palette with `Ctrl+O`.
 2. Type part of a skill name, such as `ponytail` or `simplify`.
 3. Select the matching `invoke skill: <name>` command.
-4. Submit the task that should use the skill.
+4. The skill loads immediately; then submit the task that should use it.
 
-The palette is Amp's native UI, including its filtering, scrolling, and keyboard behavior. A selection applies once to the active thread's next submitted message. On Amp's welcome screen there is no thread to attach a selection to, so use `$skill-name` for the first message.
+The palette is Amp's native UI, including its filtering, scrolling, and keyboard behavior. Selecting a command invokes the skill immediately: the plugin sends a plugin-attributed message that performs the canonical `skill` tool call, with no follow-up submission needed. On Amp's welcome screen — before any thread exists — the selection opens a new thread (medium mode) and invokes there. If thread creation is unavailable, the selection is queued once instead and applies to the first message of the next new thread; threads that already exchanged messages never pick it up.
 
-To discard a selection before submitting the next message, run
+To discard a queued fallback selection before it applies, run
 `invoke skill: cancel queued selection` from the palette.
 
 Amp's built-in `skills: list` remains the read-only inventory view. The `invoke skill:`
@@ -63,6 +61,7 @@ Whenever Amp successfully loads a skill—from this selector, automatic model ch
 | `[$skill-name]`, `($skill-name)`, or `"/skill-name"` | Yes | Wrappers go around the complete reference. |
 | `$[skill-name]` or `/[skill-name]` | No | Brackets cannot appear between the prefix and name. |
 | References inside inline or fenced Markdown code | No | Ignored to avoid accidental invocation in examples and shell commands. |
+| `/skill-name` that also names an existing path | No | A slash reference matching a file or directory in the workspace or at the filesystem root (for example `/test` in a repository with a `test/` directory) is treated as a path. Use `$skill-name` instead. |
 
 `$` and embedded `/` references are matched after submission; they do not offer live autofill.
 For searchable autocomplete, use the native command palette with `Ctrl+O` in an active thread.
