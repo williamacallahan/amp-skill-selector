@@ -106,11 +106,12 @@ export function takeInvokedSkill(
   seenThreads?.add(threadID)
 
   const explicit = findInvokedSkill(message, references, isExistingPath)
+  const threadQueued = queued.get(threadID)
   const anyQueued = firstTurn ? queued.get(ANY_THREAD) : undefined
-  const selected = explicit ?? queued.get(threadID) ?? anyQueued
+  const usedAny = explicit === undefined && threadQueued === undefined && anyQueued !== undefined
   queued.delete(threadID)
-  if (selected !== undefined && selected === anyQueued) queued.delete(ANY_THREAD)
-  return selected
+  if (usedAny) queued.delete(ANY_THREAD)
+  return explicit ?? threadQueued ?? anyQueued
 }
 
 export function cancelQueuedSkill(

@@ -132,6 +132,19 @@ test('a thread-specific selection wins and the threadless one survives for its t
   assert.equal(queued.get(ANY_THREAD), 'ce-simplify-code')
 })
 
+test('a same-named selection from another source spares the threadless entry', () => {
+  const queued = new Map([
+    ['T-thread-1' as const, 'ponytail'],
+    [ANY_THREAD, 'ponytail'],
+  ])
+
+  assert.equal(takeInvokedSkill('Simplify this', references, 'T-thread-1', queued), 'ponytail')
+  assert.equal(queued.get(ANY_THREAD), 'ponytail')
+
+  assert.equal(takeInvokedSkill('$ponytail go', references, 'T-thread-2', queued), 'ponytail')
+  assert.equal(queued.get(ANY_THREAD), 'ponytail')
+})
+
 test('a previously seen thread does not consume a threadless pending selection', () => {
   const queued = new Map([[ANY_THREAD, 'ponytail']])
   const seen = new Set(['T-old' as const])
