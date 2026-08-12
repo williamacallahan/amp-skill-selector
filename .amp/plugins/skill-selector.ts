@@ -69,7 +69,7 @@ export function invocationInstruction(name: string): string {
 }
 
 export function immediateInvocationInstruction(name: string): string {
-  return `The user explicitly invoked the ${JSON.stringify(name)} skill. Call the built-in \`skill\` tool exactly once with ${JSON.stringify({ name })}, then stop and await the user's next message.`
+  return `The user explicitly invoked the ${JSON.stringify(name)} skill from the command palette. Call the built-in \`skill\` tool exactly once with ${JSON.stringify({ name })}, then follow the loaded skill instructions and reply normally — this selection is the user's request; if the skill needs input only the user can provide, ask for it.`
 }
 
 export function parseSkillInventory(json: string): Skill[] {

@@ -10,6 +10,7 @@ import skillSelector, {
   cancelQueuedSkill,
   createSkillReferenceMatcher,
   findInvokedSkill,
+  immediateInvocationInstruction,
   invocationInstruction,
   loadedSkillName,
   parseSkillInventory,
@@ -80,6 +81,15 @@ test('builds an explicit canonical skill-tool instruction', () => {
   assert.match(instruction, /built-in `skill` tool/)
   assert.match(instruction, /"name":"ponytail"/)
   assert.match(instruction, /before any other action/i)
+})
+
+test('palette invocation requires a normal response after the skill loads', () => {
+  const instruction = immediateInvocationInstruction('ponytail')
+
+  assert.match(instruction, /built-in `skill` tool/)
+  assert.match(instruction, /"name":"ponytail"/)
+  assert.match(instruction, /follow the loaded skill instructions/)
+  assert.doesNotMatch(instruction, /stop|await/i)
 })
 
 test('parses Amp canonical skill inventory', () => {
@@ -204,6 +214,8 @@ test('a welcome-screen selection opens a thread and invokes immediately', async 
   assert.equal(appended.length, 1)
   assert.equal(appended[0]?.type, 'user-message')
   assert.match(String(appended[0]?.content), /"name":"ponytail"/)
+  assert.match(String(appended[0]?.content), /follow the loaded skill instructions/)
+  assert.doesNotMatch(String(appended[0]?.content), /stop|await/i)
 })
 
 test('falls back to queueing when a thread cannot be created', async () => {
@@ -284,6 +296,8 @@ test('an in-thread selection invokes immediately instead of queueing', async () 
   assert.equal(appended[0]?.type, 'user-message')
   assert.match(String(appended[0]?.content), /built-in `skill` tool/)
   assert.match(String(appended[0]?.content), /"name":"ponytail"/)
+  assert.match(String(appended[0]?.content), /follow the loaded skill instructions/)
+  assert.doesNotMatch(String(appended[0]?.content), /stop|await/i)
 
   const invoked = await handlers.get('agent.start')?.({
     thread: { id: 'T-thread-1' },
